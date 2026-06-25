@@ -1,0 +1,237 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  /* —— 设计令牌（DESIGN.md 正本，CSS 用变量引用避免裸值）—— */
+  --c-ochre: #b45309;
+  --c-ochre-deep: #92400e;
+  --c-ochre-tint: #f5e3c7;
+  --c-coral-soft: #ebcece;
+  --c-ivory-paper: #f5f3ef;
+  --c-ivory-light: #faf9f5;
+  --c-ivory-medium: #f0eee6;
+  --c-ivory-dark: #e8e6dc;
+  --c-cloud-light: #d1cfc5;
+  --c-cloud-medium: #b0aea5;
+  --c-cloud-dark: #87867f;
+  --c-slate-light: #5e5d59;
+  --c-slate-medium: #3d3d3a;
+  --c-slate-dark: #141413;
+  --c-slate-near-black: #080808;
+  --c-surface: #ffffff;
+  --r-small: 4px;
+  --r-default: 8px;
+  --r-card: 12px;
+  --sh-resting: 0 1px 3px rgba(0,0,0,0.04);
+  --sh-hover: 0 4px 12px rgba(0,0,0,0.08);
+  --sh-focus: 0 0 0 3px rgba(180, 83, 9, 0.14);
+  --ease-state: 0.15s ease;
+  --ease-fade: 0.22s ease-out;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  /* 主区域底色 paper */
+  background-color: var(--c-ivory-paper);
+  color: var(--c-slate-dark);
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "kern", "liga", "cv11", "ss01";
+}
+
+/* —— 背景分区：侧边栏 ivory、主区 paper —— */
+.ww-bg-sidebar { background-color: var(--c-ivory-light); }
+.ww-bg-main    { background-color: var(--c-ivory-paper); }
+
+/* —— 滚动条（ivory + cloud，细而克制）—— */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--c-cloud-light);
+  border-radius: var(--r-default);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--c-cloud-medium); }
+
+/* —— Markdown 预览（衬线正文）—— */
+.prose-ww {
+  color: var(--c-slate-dark);
+  line-height: 1.8;
+  font-size: 1rem;
+  font-family: "Newsreader", "Anthropic Serif", Georgia, serif;
+}
+.prose-ww h1, .prose-ww h2, .prose-ww h3, .prose-ww h4 {
+  font-family: "Newsreader", "Anthropic Serif", Georgia, serif;
+  color: var(--c-slate-dark);
+  letter-spacing: -0.01em;
+}
+.prose-ww h1 {
+  font-size: 1.7rem; font-weight: 600;
+  margin: 1.4rem 0 0.7rem; padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--c-ivory-dark);
+}
+.prose-ww h2 { font-size: 1.32rem; font-weight: 600; margin: 1.3rem 0 0.55rem; }
+.prose-ww h3 { font-size: 1.12rem; font-weight: 600; margin: 1.1rem 0 0.45rem; }
+.prose-ww p  { margin: 0.65rem 0; }
+.prose-ww ul, .prose-ww ol { margin: 0.5rem 0 0.5rem 1.4rem; }
+.prose-ww ul { list-style: disc; }
+.prose-ww ol { list-style: decimal; }
+.prose-ww li { margin: 0.28rem 0; }
+/* blockquote：去厚单边竖条（No-Stripe Rule），改整块 ivory 底 + 斜体衬线 */
+.prose-ww blockquote {
+  margin: 0.9rem 0;
+  padding: 0.45rem 0.95rem;
+  background: var(--c-ivory-light);
+  border-radius: var(--r-small);
+  color: var(--c-slate-medium);
+  font-style: italic;
+}
+.prose-ww code {
+  background: var(--c-ivory-medium); padding: 0.12rem 0.38rem;
+  border-radius: var(--r-small); font-size: 0.85em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.prose-ww pre {
+  background: var(--c-slate-near-black); color: var(--c-ivory-light);
+  padding: 0.95rem 1.05rem; border-radius: var(--r-default);
+  overflow-x: auto; margin: 0.9rem 0;
+  font-size: 0.86rem; line-height: 1.55;
+}
+.prose-ww pre code { background: transparent; padding: 0; color: inherit; font-size: inherit; }
+.prose-ww hr { border: none; border-top: 1px solid var(--c-ivory-dark); margin: 1.3rem 0; }
+.prose-ww a { color: var(--c-ochre-deep); text-decoration: underline; text-underline-offset: 2px; }
+.prose-ww strong { font-weight: 600; }
+.prose-ww table { border-collapse: collapse; margin: 0.9rem 0; width: 100%; font-size: 0.92rem; }
+.prose-ww th, .prose-ww td { border: 1px solid var(--c-ivory-dark); padding: 0.45rem 0.7rem; text-align: left; }
+.prose-ww th { background: var(--c-ivory-medium); font-weight: 600; }
+
+/* —— 输入框 —— */
+.ww-input {
+  width: 100%;
+  border: 1px solid var(--c-ivory-dark);
+  background: var(--c-surface);
+  border-radius: var(--r-default);
+  padding: 0.5rem 0.7rem;
+  font-size: 13px;
+  color: var(--c-slate-dark);
+  outline: none;
+  transition: border-color var(--ease-state), box-shadow var(--ease-state), background-color var(--ease-state);
+}
+.ww-input::placeholder { color: var(--c-cloud-dark); }
+.ww-input:focus {
+  border-color: var(--c-ochre);
+  box-shadow: var(--sh-focus);
+}
+
+/* —— 文档标题输入：20px 衬线，底部聚焦线 —— */
+.ww-title-input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 0.25rem 0 0.5rem;
+  font-family: "Newsreader", "Anthropic Serif", Georgia, serif;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--c-slate-dark);
+  outline: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.18s;
+}
+.ww-title-input::placeholder { color: var(--c-cloud-medium); font-weight: 500; }
+.ww-title-input:focus { border-bottom-color: var(--c-ochre); }
+
+/* —— 按钮 —— */
+.ww-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border-radius: var(--r-default);
+  padding: 0.46rem 0.85rem;
+  font-size: 13px;
+  font-weight: 500;
+  transition: background-color var(--ease-state), color var(--ease-state), box-shadow var(--ease-state), transform 0.06s;
+  cursor: pointer;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+.ww-btn:active { transform: translateY(0.5px); }
+.ww-btn-primary { background: var(--c-ochre); color: var(--c-ivory-light); }
+.ww-btn-primary:hover:not(:disabled) { background: var(--c-ochre-deep); }
+.ww-btn-primary:disabled { background: var(--c-cloud-light); color: var(--c-ivory-light); cursor: not-allowed; }
+.ww-btn-ghost {
+  background: transparent;
+  color: var(--c-slate-medium);
+  border: 1px solid var(--c-ivory-dark);
+}
+.ww-btn-ghost:hover:not(:disabled) { background: var(--c-ivory-medium); color: var(--c-slate-dark); }
+.ww-btn-ghost:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* —— 卡片：去边框、统一阴影、hover 浮起 —— */
+.ww-card {
+  background: var(--c-surface);
+  border-radius: var(--r-card);
+  box-shadow: var(--sh-resting);
+  transition: box-shadow 0.18s, transform 0.18s;
+}
+.ww-card-hover:hover {
+  box-shadow: var(--sh-hover);
+  transform: translateY(-1px);
+}
+
+/* —— pill 标签 —— */
+.ww-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 100vw;
+  padding: 0.1rem 0.55rem;
+  font-size: 11px;
+  font-weight: 500;
+  background: var(--c-ivory-medium);
+  color: var(--c-slate-light);
+}
+
+/* —— 空状态：图标容器 + 两行文字 —— */
+.ww-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 2rem 1.5rem;
+  text-align: center;
+}
+.ww-empty-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px; height: 40px;
+  border-radius: 100vw;
+  background: var(--c-ivory-medium);
+  color: var(--c-cloud-dark);
+  margin-bottom: 0.1rem;
+}
+.ww-empty-title { font-size: 13px; font-weight: 600; color: var(--c-slate-light); }
+.ww-empty-desc  { font-size: 12px; color: var(--c-cloud-dark); }
+
+/* —— 错误提示：用 ivory 软底替代裸红底，赭石-深做边/字 —— */
+.ww-error {
+  background: var(--c-coral-soft);
+  color: var(--c-ochre-deep);
+  border-radius: var(--r-default);
+  padding: 0.5rem 0.75rem;
+}
+
+/* —— fade-in —— */
+@keyframes ww-fade {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.ww-fade { animation: ww-fade var(--ease-fade); }

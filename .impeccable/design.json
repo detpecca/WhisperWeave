@@ -1,0 +1,127 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-06-24T07:30:00Z",
+  "title": "Design System: WhisperWeave",
+  "extensions": {
+    "colorMeta": {
+      "ochre": {
+        "role": "primary",
+        "displayName": "Ochre 藏赭",
+        "canonical": "#b45309",
+        "tonalRamp": ["#2e1505", "#4a2409", "#6b370e", "#8a4d12", "#b45309", "#c66a2e", "#d9834f", "#f5e3c7"]
+      },
+      "ivory-paper": {
+        "role": "neutral",
+        "displayName": "Ivory Paper 象纸",
+        "canonical": "#f5f3ef",
+        "tonalRamp": ["#2e2a23", "#4a453c", "#6b6457", "#878073", "#b0a99b", "#d1ccc0", "#e8e4dc", "#f5f3ef"]
+      },
+      "ivory-light": {
+        "role": "neutral",
+        "displayName": "Ivory Light 浅象纸",
+        "canonical": "#faf9f5",
+        "tonalRamp": ["#2e2a23", "#4a453c", "#6b6457", "#878073", "#b0a99b", "#d1ccc0", "#e8e4dc", "#faf9f5"]
+      },
+      "slate-dark": {
+        "role": "neutral",
+        "displayName": "Slate Dark 墨石",
+        "canonical": "#141413",
+        "tonalRamp": ["#080808", "#141413", "#1f1e1d", "#3d3d3a", "#5e5d59", "#87867f", "#b0aea5", "#d1cfc5"]
+      }
+    },
+    "shadows": [
+      { "name": "resting", "value": "0 1px 3px rgba(0,0,0,0.04)", "purpose": "卡片默认。几乎看不见，仅暗示边界。" },
+      { "name": "hover", "value": "0 4px 12px rgba(0,0,0,0.08)", "purpose": "可交互卡片悬停，配 translateY(-1px)。" },
+      { "name": "focus-ring", "value": "0 0 0 3px rgba(180,83,9,0.14)", "purpose": "输入聚焦的赭石光环，替代纯蓝。" }
+    ],
+    "motion": [
+      { "name": "state", "value": "0.15s ease", "purpose": "按钮、卡片背景色/阴影的状态过渡。" },
+      { "name": "fade-in", "value": "0.22s ease-out", "purpose": "弹窗、预览区块的入场。" }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "lg", "value": "1024px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "主动作按钮（织造、记下、同步）。赭石底，带线性图标。",
+      "html": "<button class=\"ds-btn-primary\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M13 2 3 14h9l-1 8 10-12h-9l1-8Z\"/></svg> 一键自动织造</button>",
+      "css": ".ds-btn-primary{display:inline-flex;align-items:center;justify-content:center;gap:0.4rem;border-radius:8px;padding:7px 14px;font-size:13px;font-weight:500;font-family:Switzer,system-ui,sans-serif;background:#b45309;color:#faf9f5;border:none;cursor:pointer;transition:background 0.15s,transform 0.06s;line-height:1.2;} .ds-btn-primary:hover{background:#92400e;} .ds-btn-primary:active{transform:translateY(0.5px);} .ds-btn-primary:disabled{background:#d1cfc5;color:#faf9f5;cursor:not-allowed;}"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "次级动作（设置、返回、新建）。透明描边。",
+      "html": "<button class=\"ds-btn-ghost\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\"><path d=\"M12 5v14M5 12h14\"/></svg> 新建</button>",
+      "css": ".ds-btn-ghost{display:inline-flex;align-items:center;gap:0.4rem;border-radius:8px;padding:7px 14px;font-size:13px;font-weight:500;font-family:Switzer,system-ui,sans-serif;background:transparent;color:#3d3d3a;border:1px solid #e8e6dc;cursor:pointer;transition:background 0.15s,color 0.15s;} .ds-btn-ghost:hover{background:#f0eee6;color:#141413;}"
+    },
+    {
+      "name": "Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "标准文本输入。1px 描边，赭石聚焦光环。",
+      "html": "<input class=\"ds-input\" placeholder=\"随手记一条碎碎念…\" />",
+      "css": ".ds-input{width:100%;border:1px solid #e8e6dc;background:#fff;border-radius:8px;padding:8px 11px;font-size:13px;font-family:Switzer,system-ui,sans-serif;color:#141413;outline:none;transition:border-color 0.15s,box-shadow 0.15s;} .ds-input::placeholder{color:#87867f;} .ds-input:focus{border-color:#b45309;box-shadow:0 0 0 3px rgba(180,83,9,0.14);}"
+    },
+    {
+      "name": "Pill",
+      "kind": "chip",
+      "refersTo": "pill",
+      "description": "标签/计数 pill。全圆，极紧凑。",
+      "html": "<span class=\"ds-pill\">工作</span>",
+      "css": ".ds-pill{display:inline-flex;align-items:center;gap:0.25rem;border-radius:100vw;padding:2px 9px;font-size:11px;font-weight:500;font-family:Switzer,system-ui,sans-serif;background:#f0eee6;color:#5e5d59;}"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "通用卡片。白底，12px 圆角，近无影，hover 浮起。",
+      "html": "<div class=\"ds-card\">卡片内容</div>",
+      "css": ".ds-card{background:#fff;border-radius:12px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,0.04);transition:box-shadow 0.18s,transform 0.18s;} .ds-card:hover{box-shadow:0 4px 12px rgba(0,0,0,0.08);transform:translateY(-1px);}"
+    },
+    {
+      "name": "Title Input",
+      "kind": "custom",
+      "refersTo": "input",
+      "description": "文档标题输入。20px 衬线，无外框，底部聚焦线。",
+      "html": "<input class=\"ds-title-input\" placeholder=\"未命名文档\" />",
+      "css": ".ds-title-input{width:100%;border:none;background:transparent;padding:4px 0 8px;font-family:Newsreader,Georgia,serif;font-size:20px;font-weight:600;color:#141413;outline:none;border-bottom:1px solid transparent;transition:border-color 0.18s;} .ds-title-input::placeholder{color:#b0aea5;font-weight:500;} .ds-title-input:focus{border-bottom-color:#b45309;}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Loom",
+    "overview": "WhisperWeave 是一台安静的织机。碎片是散落的线头，文档是织成的布，而界面是那台机器本身——它不该比布更惹眼。整个系统围绕一个动作组织：把零碎的输入织成结构化的成文。一切视觉决策都从这个单一动作派生。\n\n气质上利落、克制、有秩序感。留白承担分隔职责，边框只出现在少数不可省的接缝处。色阶节制，唯一的彩色信号是赭石，且刻意稀少——它的稀缺正是它说话的分量。",
+    "keyCharacteristics": [
+      "纸面底色分层，而非描边分隔",
+      "单一赭石强调色，稀有即分量",
+      "衬线标题 + 无衬线 UI 的双字体体系",
+      "六级字号、三档圆角的克制尺度",
+      "卡片退到背景，内容是主角"
+    ],
+    "rules": [
+      { "name": "The One Thread Rule", "body": "赭石是唯一的彩色信号。任何一屏上赭石的总面积不超过 10%。它的稀缺是设计意图，不是限制。", "section": "colors" },
+      { "name": "The No-Stripe Rule", "body": "禁止用 border-left: >1px 的彩色竖条做强调。强调改用整块底色或 1px 描边，绝不堆厚边。", "section": "colors" },
+      { "name": "The Two-Voice Rule", "body": "衬线只用于标题与文档正文；一切交互文字用无衬线。两套字体在一根对比轴上分工。", "section": "typography" },
+      { "name": "The Scale Discipline Rule", "body": "字号只用六级（11/12/13/14/16/20），圆角只用三档。不引入中间值。", "section": "typography" },
+      { "name": "The Flat-By-Default Rule", "body": "表面默认是平的。阴影只作为状态响应出现（hover、聚焦），从不用于装饰。", "section": "elevation" }
+    ],
+    "dos": [
+      "Do 用纸面色阶分层（Ivory-Light 侧栏 / Ivory-Paper 主区 / 白卡片），替代描边分隔。",
+      "Do 把赭石留给真正需要强调的交互，一屏赭石面积 ≤10%。",
+      "Do 标题用衬线 Newsreader、交互文字用无衬线 Switzer，两套字体分工不混。",
+      "Do 卡片默认近乎无影，hover 才轻浮起；聚焦用赭石光环。"
+    ],
+    "donts": [
+      "Don't 用 border-left: >1px 的彩色竖条做强调（AI slop tell）。",
+      "Don't 用紫色/青色霓虹渐变、发光描边、渐变标题字。",
+      "Don't 把界面做成仪表盘：一屏塞满图表、徽章、通知。",
+      "Don't 用纯黑做正文，用 Slate-Dark；不用纯白做底，用 Ivory。",
+      "Don't 用纯蓝聚焦环，用赭石光环。"
+    ]
+  }
+}
