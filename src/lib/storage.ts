@@ -1,4 +1,4 @@
-import type { AppSettings, Fragment, GeneratedDoc, ID } from "./types";
+import type { AppSettings, Fragment, GeneratedDoc, ID, WorkspaceSnapshot } from "./types";
 
 const KEY = {
   fragments: "ww.fragments",
@@ -200,4 +200,96 @@ export function getSettings(): AppSettings {
 
 export function saveSettings(s: AppSettings) {
   write(KEY.settings, s);
+}
+
+// ---------------- 工作区导出/导入 ----------------
+
+/** 导出工作区快照。
+ * - includeSecrets=false（默认）：settings 里的 apiKey / 飞书 appSecret 清空，
+ *   日常备份可安全分享；导出文件名标"不含密钥"。
+ * - includeSecrets=true：保留密钥，仅用于自己换设备迁移，文件名标"含凭证"。
+ */
+export function exportWorkspace(includeSecrets = false): WorkspaceSnapshot {
+  const settings = getSettings();
+  const safeSettings: AppSettings = includeSecrets
+    ? settings
+    : {
+        ...settings,
+        llm: { ...settings.llm, apiKey: undefined },
+        feishu: { ...settings.feishu, appSecret: undefined },
+      };
+  return {
+    version: 1,
+    exportedAt: Date.now(),
+    source: "web",
+    fragments: read<Fragment[]>(KEY.fragments, []),
+    docs: read<GeneratedDoc[]>(KEY.docs, []),
+    settings: safeSettings,
+    includeSecrets,
+  };
+}
+
+/** 导入模式：
+ * - "merge"：保留现有数据，按 id 合并（快照里的覆盖同 id 的本地项，新 id 追加）。
+ * - "replace"：清空本地全部数据，用快照整体替换。
+ */
+export type ImportMode = "merge" | "replace";
+
+export function importWorkspace(
+  snap: WorkspaceSnapshot,
+  mode: ImportMode
+): { fragments: number; docs: number } {
+  if (!snap || snap.version !== 1) {
+    throw new Error("无法识别的备份文件（version 不匹配）");
+  }
+  if (mode === "replace") {
+    write(KEY.fragments, snap.fragments);
+    write(KEY.docs, snap.docs);
+    write(KEY.settings, snap.settings);
+    return {
+      fragments: snap.fragments.length,
+      docs: snap.docs.length,
+    };
+  }
+  // merge：按 id 合并，快照优先（同 id 覆盖本地）
+  const mergeById = <T extends { id: ID }>(local: T[], incoming: T[]): T[] => {
+    const map = new Map(local.map((x) => [x.id, x]));
+    for (const x of incoming) map.set(x.id, x);
+    return Array.from(map.values());
+  };
+  const localFrags = read<Fragment[]>(KEY.fragments, []);
+  const localDocs = read<GeneratedDoc[]>(KEY.docs, []);
+  write(KEY.fragments, mergeById(localFrags, snap.fragments));
+  write(KEY.docs, mergeById(localDocs, snap.docs));
+  // settings：快照里有密钥就带过来，没有就保留本地现有的
+  const current = getSettings();
+  const mergedSettings: AppSettings = {
+    ...snap.settings,
+    llm: {
+      ...snap.settings.llm,
+      apiKey: snap.settings.llm.apiKey || current.llm.apiKey,
+    },
+    feishu: {
+      ...snap.settings.feishu,
+      appSecret: snap.settings.feishu.appSecret || current.feishu.appSecret,
+    },
+  };
+  write(KEY.settings, mergedSettings);
+  return {
+    fragments: snap.fragments.length,
+    docs: snap.docs.length,
+  };
+}
+
+/** 校验一个未知对象是否是合法的 WorkspaceSnapshot（导入前预检）。 */
+export function isValidSnapshot(obj: unknown): obj is WorkspaceSnapshot {
+  if (!obj || typeof obj !== "object") return false;
+  const s = obj as Record<string, unknown>;
+  return (
+    s.version === 1 &&
+    Array.isArray(s.fragments) &&
+    Array.isArray(s.docs) &&
+    typeof s.settings === "object" &&
+    s.settings !== null
+  );
 }

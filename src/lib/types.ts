@@ -126,3 +126,21 @@ export interface AggregateResponse {
   /** 耗时 ms */
   elapsed?: number;
 }
+
+
+// ---------------- 工作区快照（导出/导入） ----------------
+
+/** 工作区快照：完整的本地数据备份单位。 */
+export interface WorkspaceSnapshot {
+  /** schema 版本，用于后续字段迁移 */
+  version: 1;
+  /** 导出时间戳（ms） */
+  exportedAt: number;
+  /** 来源标识，例如 "web" / "mobile" */
+  source?: string;
+  fragments: Fragment[];
+  docs: GeneratedDoc[];
+  settings: AppSettings;
+  /** 是否包含 API key / 飞书 appSecret 等密钥 */
+  includeSecrets: boolean;
+}

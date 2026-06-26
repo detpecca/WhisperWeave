@@ -1,14 +1,24 @@
 "use client";
 
-import { useState } from "react";
-import { getSettings, saveSettings } from "@/lib/storage";
-import type { AppSettings, LLMProvider } from "@/lib/types";
+import { useRef, useState } from "react";
+import {
+  exportWorkspace,
+  getSettings,
+  importWorkspace,
+  isValidSnapshot,
+  saveSettings,
+} from "@/lib/storage";
+import type { AppSettings, LLMProvider, WorkspaceSnapshot } from "@/lib/types";
 import { PROVIDER_DEFAULTS } from "@/lib/prompt";
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<AppSettings>(getSettings());
   const [saved, setSaved] = useState(false);
   const [newTag, setNewTag] = useState("");
+  const [importBusy, setImportBusy] = useState(false);
+  const [workspaceMsg, setWorkspaceMsg] = useState<string | null>(null);
+  const [exportIncludeSecrets, setExportIncludeSecrets] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const update = (patch: Partial<AppSettings>) => {
     setSettings((s) => ({ ...s, ...patch }));
@@ -40,6 +50,64 @@ export default function SettingsPage() {
   };
   const removePresetTag = (tag: string) => {
     update({ presetTags: settings.presetTags.filter((t) => t !== tag) });
+  };
+
+  // ---- 工作区导出/导入 ----
+  const safeName = (s: string) =>
+    s.replace(/[#<>:"/\\|?*\n\r\t]/g, "").trim() || "WhisperWeave";
+
+  const onExport = () => {
+    const snap = exportWorkspace(exportIncludeSecrets);
+    const date = new Date();
+    const stamp = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, "0")}${String(date.getDate()).padStart(2, "0")}`;
+    const tag = exportIncludeSecrets ? "含凭证" : "不含密钥";
+    const filename = `WhisperWeave-${stamp}-${tag}.json`;
+    const blob = new Blob([JSON.stringify(snap, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setWorkspaceMsg(
+      `已导出 ${snap.fragments.length} 条碎片、${snap.docs.length} 篇文档${
+        exportIncludeSecrets ? "（含凭证，请妥善保管）" : "（不含密钥）"
+      }`
+    );
+  };
+
+  const onImportFile = async (file: File) => {
+    setImportBusy(true);
+    setWorkspaceMsg(null);
+    try {
+      const text = await file.text();
+      const obj = JSON.parse(text) as unknown;
+      if (!isValidSnapshot(obj)) {
+        throw new Error("文件格式不正确，不是有效的工作区备份");
+      }
+      const snap = obj as WorkspaceSnapshot;
+      const mode: "merge" | "replace" = window.confirm(
+        `检测到 ${snap.fragments.length} 条碎片、${snap.docs.length} 篇文档。\n\n` +
+          "确定 = 合并到现有数据（同 id 覆盖，新 id 追加）\n" +
+          "取消 = 替换现有数据（先清空本地全部，再导入）"
+      )
+        ? "merge"
+        : "replace";
+      const result = importWorkspace(snap, mode);
+      setSettings(getSettings());
+      setWorkspaceMsg(
+        `已导入（${mode === "merge" ? "合并" : "替换"}）：${result.fragments} 条碎片、${result.docs} 篇文档`
+      );
+    } catch (e) {
+      setWorkspaceMsg(
+        `导入失败：${e instanceof Error ? e.message : String(e)}`
+      );
+    } finally {
+      setImportBusy(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
   };
 
   const def = PROVIDER_DEFAULTS[settings.llm.provider] ?? PROVIDER_DEFAULTS["openai-compatible"];
@@ -195,6 +263,50 @@ export default function SettingsPage() {
           </div>
         </section>
 
+        {/* 工作区备份 */}
+        <section className="ww-card p-4">
+          <h2 className="mb-1 text-12 font-semibold uppercase tracking-wide text-ink-600">工作区备份</h2>
+          <p className="mb-3 text-11 text-ink-600">
+            导出包含所有碎片、文档与配置的 JSON 文件，用于备份或迁移到其他设备。默认不含 API Key 与飞书 App Secret，可安全分享；换设备迁移时勾选「包含凭证」。
+          </p>
+          <div className="mb-3 flex flex-wrap items-center gap-3">
+            <label className="flex cursor-pointer items-center gap-1.5 text-12 text-ink-700">
+              <input
+                type="checkbox"
+                checked={exportIncludeSecrets}
+                onChange={(e) => setExportIncludeSecrets(e.target.checked)}
+                className="accent-accent"
+              />
+              包含凭证（含 API Key 与飞书 Secret，仅自己保管）
+            </label>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button onClick={onExport} className="ww-btn ww-btn-ghost text-13">
+              <IconDownload /> 导出工作区
+            </button>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={importBusy}
+              className="ww-btn ww-btn-ghost text-13 disabled:bg-cloud-light disabled:text-ivory-light"
+            >
+              <IconUpload /> {importBusy ? "导入中…" : "导入工作区"}
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="application/json,.json"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) onImportFile(f);
+              }}
+            />
+          </div>
+          {workspaceMsg && (
+            <p className="mt-3 text-12 text-ink-700">{workspaceMsg}</p>
+          )}
+        </section>
+
         <div className="flex items-center gap-3 pb-4">
           <button onClick={save} className="ww-btn ww-btn-primary text-13">
             <IconSave /> 保存设置
@@ -209,3 +321,5 @@ export default function SettingsPage() {
 function IconSave() { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z" /><path d="M17 21v-8H7v8M7 3v5h8" /></svg>; }
 function IconPlus() { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>; }
 function IconXSmall() { return <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>; }
+function IconDownload() { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>; }
+function IconUpload() { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" /></svg>; }
