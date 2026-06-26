@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
-import { classifyFragments, classifyFragmentsStream } from "@/lib/llm";
-import type { ClassifyRequest } from "@/lib/types";
+import { classifyFragments, classifyFragmentsStream } from "@whisperweave/core";
+import type { ClassifyRequest } from "@whisperweave/core";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

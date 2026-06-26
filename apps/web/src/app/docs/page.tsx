@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { GeneratedDoc, ID } from "@/lib/types";
+import type { GeneratedDoc, ID } from "@whisperweave/core";
 import {
   archiveDocs,
   deleteDoc,

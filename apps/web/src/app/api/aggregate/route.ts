@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
-import { aggregateWithLLM } from "@/lib/llm";
-import type { AggregateRequest } from "@/lib/types";
+import { aggregateWithLLM } from "@whisperweave/core";
+import type { AggregateRequest } from "@whisperweave/core";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -46,7 +46,7 @@ export async function PUT(req: NextRequest) {
     if (!body.fragments?.length) {
       return Response.json({ error: "缺少碎片" }, { status: 400 });
     }
-    const { aggregateGroupWithLLM } = await import("@/lib/llm");
+    const { aggregateGroupWithLLM } = await import("@whisperweave/core");
     const result = await aggregateGroupWithLLM(
       body.config,
       body.groupName || "未命名主题",
@@ -72,7 +72,7 @@ async function putStream(req: NextRequest) {
         headers: sseHeaders(),
       });
     }
-    const { aggregateGroupWithLLMStream } = await import("@/lib/llm");
+    const { aggregateGroupWithLLMStream } = await import("@whisperweave/core");
     const stream = new ReadableStream<Uint8Array>({
       async start(controller) {
         try {

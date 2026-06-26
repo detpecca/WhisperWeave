@@ -5,11 +5,10 @@ import {
   exportWorkspace,
   getSettings,
   importWorkspace,
-  isValidSnapshot,
   saveSettings,
 } from "@/lib/storage";
-import type { AppSettings, LLMProvider, WorkspaceSnapshot } from "@/lib/types";
-import { PROVIDER_DEFAULTS } from "@/lib/prompt";
+import type { AppSettings, LLMProvider, WorkspaceSnapshot } from "@whisperweave/core";
+import { isValidSnapshot, PROVIDER_DEFAULTS } from "@whisperweave/core";
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<AppSettings>(getSettings());

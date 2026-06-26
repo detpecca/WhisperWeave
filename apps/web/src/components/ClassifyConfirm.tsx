@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { ClassifyGroup } from "@/lib/types";
+import type { ClassifyGroup } from "@whisperweave/core";
 
 interface Props {
   open: boolean;

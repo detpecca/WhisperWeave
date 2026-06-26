@@ -1,4 +1,5 @@
-import type { AppSettings, Fragment, GeneratedDoc, ID, WorkspaceSnapshot } from "./types";
+import type { AppSettings, Fragment, GeneratedDoc, ID, WorkspaceSnapshot } from "@whisperweave/core";
+import type { StorageAdapter } from "@whisperweave/core";
 
 const KEY = {
   fragments: "ww.fragments",
@@ -281,15 +282,3 @@ export function importWorkspace(
   };
 }
 
-/** 校验一个未知对象是否是合法的 WorkspaceSnapshot（导入前预检）。 */
-export function isValidSnapshot(obj: unknown): obj is WorkspaceSnapshot {
-  if (!obj || typeof obj !== "object") return false;
-  const s = obj as Record<string, unknown>;
-  return (
-    s.version === 1 &&
-    Array.isArray(s.fragments) &&
-    Array.isArray(s.docs) &&
-    typeof s.settings === "object" &&
-    s.settings !== null
-  );
-}

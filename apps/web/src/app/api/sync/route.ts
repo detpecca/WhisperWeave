@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
-import type { FeishuConfig } from "@/lib/types";
-import { syncMarkdownToFeishu } from "@/lib/feishu";
+import type { FeishuConfig } from "@whisperweave/core";
+import { syncMarkdownToFeishu } from "@whisperweave/core";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

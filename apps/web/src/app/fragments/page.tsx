@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import type { Fragment, GeneratedDoc } from "@/lib/types";
+import type { Fragment, GeneratedDoc } from "@whisperweave/core";
 import {
   addFragment,
   clearFragments,

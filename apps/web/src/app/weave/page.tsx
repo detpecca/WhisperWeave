@@ -9,7 +9,7 @@ import type {
   DocType,
   Fragment,
   LLMConfig,
-} from "@/lib/types";
+} from "@whisperweave/core";
 import {
   getSettings,
   listFragments,
@@ -19,7 +19,7 @@ import {
   tagFragments,
   unmarkFragmentsConsumed,
 } from "@/lib/storage";
-import { docTypeLabel } from "@/lib/prompt";
+import { docTypeLabel } from "@whisperweave/core";
 import { MarkdownPreview } from "@/components/MarkdownPreview";
 import { ExportButtons } from "@/components/ExportButtons";
 import { SyncButton } from "@/components/SyncButton";
