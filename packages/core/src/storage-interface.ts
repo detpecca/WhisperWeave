@@ -51,3 +51,14 @@ export function isValidSnapshot(obj: unknown): obj is WorkspaceSnapshot {
     s.settings !== null
   );
 }
+
+
+/** 默认设置：两端共用的兜底值。 */
+export const DEFAULT_SETTINGS: AppSettings = {
+  llm: {
+    provider: "deepseek",
+    model: "deepseek-chat",
+  },
+  feishu: {},
+  presetTags: ["工作", "灵感", "待办", "学习", "生活", "技术笔记"],
+};

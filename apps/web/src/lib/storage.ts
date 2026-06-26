@@ -1,4 +1,5 @@
 import type { AppSettings, Fragment, GeneratedDoc, ID, WorkspaceSnapshot } from "@whisperweave/core";
+import { DEFAULT_SETTINGS } from "@whisperweave/core";
 import type { StorageAdapter } from "@whisperweave/core";
 
 const KEY = {
@@ -170,15 +171,6 @@ export function archiveDocs(ids: ID[], archived: boolean) {
 
 // ---------------- Settings ----------------
 
-export const DEFAULT_SETTINGS: AppSettings = {
-  llm: {
-    provider: "deepseek",
-    model: "deepseek-chat",
-  },
-  feishu: {},
-  presetTags: ["工作", "灵感", "待办", "学习", "生活", "技术笔记"],
-};
-
 export function getSettings(): AppSettings {
   const stored = read<Partial<AppSettings>>(KEY.settings, {});
   return {
@@ -282,3 +274,15 @@ export function importWorkspace(
   };
 }
 
+/** 校验一个未知对象是否是合法的 WorkspaceSnapshot（导入前预检）。 */
+export function isValidSnapshot(obj: unknown): obj is WorkspaceSnapshot {
+  if (!obj || typeof obj !== "object") return false;
+  const s = obj as Record<string, unknown>;
+  return (
+    s.version === 1 &&
+    Array.isArray(s.fragments) &&
+    Array.isArray(s.docs) &&
+    typeof s.settings === "object" &&
+    s.settings !== null
+  );
+}

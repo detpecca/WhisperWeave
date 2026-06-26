@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "WhisperWeave",
+    "slug": "whisperweave",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.whisperweave.app"
+    },
+    "android": {
+      "package": "com.whisperweave.app",
+      "adaptiveIcon": {
+        "foregroundImage": "",
+        "backgroundColor": "#f5f3ef"
+      }
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": ["expo-secure-store"]
+  }
+}
