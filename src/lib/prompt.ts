@@ -137,8 +137,8 @@ export function buildClassifyPrompt(
     "3. 标签名要简洁、通用，便于检索（如「前端」「读书」「健身」「会议」）。",
     "4. 每条碎片必须恰好归入一组，不能遗漏，不能重复。",
     "5. 如果碎片之间主题差异很大，可以分成多组；若都属同一主题也可以只分一组。",
-    "6. 必须输出严格合法的 JSON，且只输出 JSON，不要 markdown 代码块、不要任何解释文字。",
-    "7. JSON 结构：{\"groups\":[{\"tag\":string,\"fragmentIds\":string[],\"reason\":string,\"isNewTag\":boolean}]}。",
+    "6. 先用 2-4 句话简要分析你看到的主题与分组思路（自然语言，给用户看），然后另起一行用 ```json 代码块输出严格合法的 JSON。代码块之外不要出现 JSON 的大括号或方括号。",
+    "7. JSON 结构：{\"groups\":[{\"tag\":string,\"fragmentIds\":string[],\"reason\":string,\"isNewTag\":boolean}]}。每个 reason 用一句话说明该组的主题与归并理由。",
   ].join("\n");
 
   const user = [

@@ -26,6 +26,8 @@ export interface GeneratedDoc {
   updatedAt: number;
   /** 同步状态 */
   sync?: DocSyncState;
+  /** 归档标记：归档后默认在列表中折叠/隐藏 */
+  archived?: boolean;
 }
 
 export interface DocSyncState {

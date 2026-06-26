@@ -147,6 +147,26 @@ export function deleteDoc(id: ID) {
   );
 }
 
+/** 批量删除文档。 */
+export function deleteDocs(ids: ID[]) {
+  const set = new Set(ids);
+  write(
+    KEY.docs,
+    read<GeneratedDoc[]>(KEY.docs, []).filter((d) => !set.has(d.id))
+  );
+}
+
+/** 批量归档/取消归档。 */
+export function archiveDocs(ids: ID[], archived: boolean) {
+  const set = new Set(ids);
+  write(
+    KEY.docs,
+    read<GeneratedDoc[]>(KEY.docs, []).map((d) =>
+      set.has(d.id) ? { ...d, archived, updatedAt: Date.now() } : d
+    )
+  );
+}
+
 // ---------------- Settings ----------------
 
 export const DEFAULT_SETTINGS: AppSettings = {

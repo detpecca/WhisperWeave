@@ -8,6 +8,7 @@ import type {
   ClassifyResponse,
   DocType,
   Fragment,
+  LLMConfig,
 } from "@/lib/types";
 import {
   getSettings,
@@ -23,6 +24,8 @@ import { MarkdownPreview } from "@/components/MarkdownPreview";
 import { ExportButtons } from "@/components/ExportButtons";
 import { SyncButton } from "@/components/SyncButton";
 import { ClassifyConfirm } from "@/components/ClassifyConfirm";
+import { LLMStreamModal } from "@/components/LLMStreamModal";
+import type { StreamSegment } from "@/components/LLMStreamModal";
 
 /** 一次织造批次：用于「撤回这次织造」。 */
 interface WeaveBatch {
@@ -51,6 +54,11 @@ export default function WeavePage() {
   const [lastBatch, setLastBatch] = useState<WeaveBatch | null>(null);
   /** 完成公告：织造完成后短暂展示。 */
   const [doneNotice, setDoneNotice] = useState<{ count: number; docIds: string[] } | null>(null);
+  /** 织造进度：逐组状态卡。 */
+  const [groupStates, setGroupStates] = useState<{ tag: string; status: "pending" | "weaving" | "done" | "error"; error?: string }[]>([]);
+  /** LLM 思考过程弹窗:分段展示分类 + 逐组织造的原始流式输出。 */
+  const [streamOpen, setStreamOpen] = useState(false);
+  const [streamSegments, setStreamSegments] = useState<StreamSegment[]>([]);
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const refreshFragments = useCallback(() => setFragments(listFragments()), []);
@@ -79,9 +87,11 @@ export default function WeavePage() {
 
     setProgress("正在分类…");
     setLoading(true);
+    setStreamSegments([{ label: "分类", text: "", status: "live" }]);
+    setStreamOpen(true);
     try {
       const s = getSettings();
-      const res = await fetch("/api/classify", {
+      const res = await fetch("/api/classify?stream=1", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -90,12 +100,56 @@ export default function WeavePage() {
           config: s.llm,
         }),
       });
-      const data = (await res.json()) as ClassifyResponse | { error: string };
-      if (!res.ok) throw new Error((data as { error: string }).error || "分类失败");
-      setClassifyGroups((data as ClassifyResponse).groups);
+      if (!res.ok || !res.body) {
+        const detail = await res.text().catch(() => "");
+        throw new Error(`分类失败 (${res.status}): ${detail.slice(0, 300)}`);
+      }
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      let groups: ClassifyGroup[] | null = null;
+      const flushBlock = (block: string) => {
+        for (const line of block.split("\n")) {
+          if (!line.startsWith("data:")) continue;
+          const data = line.slice(5).trim();
+          if (!data || data === "[DONE]") continue;
+          // JSON.parse 单独 try,失败就跳过这一行(可能是被切片的不完整 JSON)
+          let evt: { type?: string; text?: string; groups?: ClassifyGroup[]; error?: string };
+          try {
+            evt = JSON.parse(data);
+          } catch {
+            continue;
+          }
+          if (evt.type === "delta" && typeof evt.text === "string") {
+            setStreamSegments((prev) => prev.map((seg, i) => i === prev.length - 1 && seg.status === "live" ? { ...seg, text: seg.text + evt.text } : seg));
+          } else if (evt.type === "done") {
+            groups = evt.groups as ClassifyGroup[];
+            setStreamSegments((prev) => prev.map((seg) => seg.status === "live" ? { ...seg, status: "done" } : seg));
+          } else if (evt.type === "error") {
+            // 业务 error 必须向上抛,不能被吞
+            throw new Error(evt.error || "分类失败");
+          }
+        }
+      };
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        let idx: number;
+        while ((idx = buf.indexOf("\n\n")) >= 0) {
+          const block = buf.slice(0, idx);
+          buf = buf.slice(idx + 2);
+          flushBlock(block);
+        }
+      }
+      // 流结束后,flush 残留 buf(最后一个事件可能没 trailing \n\n)
+      if (buf.trim()) flushBlock(buf);
+      if (!groups) throw new Error("分类未返回结果");
+      setClassifyGroups(groups);
       setClassifyOpen(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
+      setStreamSegments((prev) => prev.map((seg) => seg.status === "live" ? { ...seg, status: "error" } : seg));
     } finally {
       setLoading(false);
       setProgress(null);
@@ -120,37 +174,40 @@ export default function WeavePage() {
     if (newTags.length) saveSettings({ ...s, presetTags: Array.from(new Set([...s.presetTags, ...newTags])) });
     groups.forEach((g) => tagFragments(g.fragmentIds, g.tag));
     const total = groups.length;
-    let done = 0;
-    setProgress(`织造 0/${total}…`);
     const batchDocIds: string[] = [];
     const batchFragIds = Array.from(new Set(groups.flatMap((g) => g.fragmentIds)));
+    // 分组状态：每组排队/织造中/完成/失败，用于逐组进度卡
+    const initStates = groups.map((g) => ({ tag: g.tag, status: "pending" as "pending" | "weaving" | "done" | "error", error: undefined as string | undefined }));
+    setGroupStates(initStates);
+    setProgress(`正在织造 · 0/${total}`);
+    // 为逐组织造准备弹窗分段:初始全部 pending,逐组激活
+    setStreamSegments((prev) => {
+      const base = prev.filter((s) => s.status !== "live");
+      const next: StreamSegment[] = groups.map((g) => ({ label: `织造 · ${g.tag}`, text: "", status: "pending" as const }));
+      return [...base, ...next];
+    });
+    setStreamOpen(true);
+    // 当前的「焦点」分组:第一组先流式进编辑器;完成后切下一组
     try {
-      const results = await Promise.all(
-        groups.map(async (g) => {
-          const groupFrags = fragmentsById(g.fragmentIds);
-          const r = await fetch("/api/aggregate", {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              groupName: g.tag,
-              fragments: groupFrags.map((f) => ({ content: f.content, tag: g.tag })),
-              config: s.llm,
-              sourceIds: g.fragmentIds,
-            }),
-          });
-          const d = (await r.json()) as AggregateResponse | { error: string };
-          if (!r.ok) throw new Error(`[${g.tag}] ${(d as { error: string }).error || "织造失败"}`);
-          const doc = d as AggregateResponse;
-          done += 1;
-          setProgress(`织造 ${done}/${total}…`);
-          const now = Date.now();
-          const id = `doc-${now.toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
-          saveDoc({ id, title: doc.title, markdown: doc.markdown, sourceFragmentIds: g.fragmentIds, createdAt: now, updatedAt: now, sync: { provider: "none", status: "none" } });
-          markFragmentsConsumed(g.fragmentIds, id);
-          batchDocIds.push(id);
-          return { id, ...doc };
-        })
-      );
+      const results: { id: string; title: string; markdown: string; provider: string; model: string; elapsed?: number }[] = [];
+      for (let i = 0; i < groups.length; i++) {
+        const g = groups[i];
+        const groupFrags = fragmentsById(g.fragmentIds);
+        setGroupStates((prev) => prev.map((st, j) => (j === i ? { ...st, status: "weaving" } : st)));
+        setProgress(`正在织造 · ${i}/${total} · ${g.tag}`);
+        // 激活当前段:pending → live
+        setStreamSegments((prev) => prev.map((seg) => seg.label === `织造 · ${g.tag}` && seg.status === "pending" ? { ...seg, status: "live" } : seg));
+        // 第一组:流式进编辑器,让用户实时看 LLM 思考
+        const isFirst = i === 0;
+        const doc = await streamAggregate(g.tag, groupFrags, s.llm, g.fragmentIds, isFirst, (delta) => {
+          setStreamSegments((prev) => prev.map((seg) => seg.label === `织造 · ${g.tag}` && seg.status === "live" ? { ...seg, text: seg.text + delta } : seg));
+        });
+        results.push(doc);
+        batchDocIds.push(doc.id);
+        setGroupStates((prev) => prev.map((st, j) => (j === i ? { ...st, status: "done" } : st)));
+        setStreamSegments((prev) => prev.map((seg) => seg.label === `织造 · ${g.tag}` && seg.status === "live" ? { ...seg, status: "done" } : seg));
+        setProgress(`正在织造 · ${i + 1}/${total}`);
+      }
       const first = results[0];
       if (first) {
         setDocId(first.id);
@@ -161,7 +218,6 @@ export default function WeavePage() {
       }
       const batch: WeaveBatch = { docIds: batchDocIds, fragmentIds: batchFragIds, createdAt: Date.now() };
       setLastBatch(batch);
-      // 完成公告
       setDoneNotice({ count: results.length, docIds: batchDocIds });
       if (noticeTimer.current) clearTimeout(noticeTimer.current);
       noticeTimer.current = setTimeout(() => setDoneNotice(null), 5000);
@@ -174,6 +230,87 @@ export default function WeavePage() {
       setClassifyBusy(false);
       setProgress(null);
     }
+  };
+
+  /**
+   * 流式织造一组:调 PUT /api/aggregate?stream=1,逐 chunk 读 SSE。
+   * - 若 focusEditor=true,把增量 markdown 实时打进编辑器/预览(看 LLM 思考)。
+   * - onDelta 回调每次都触发(供弹窗累积原始输出),与 focusEditor 独立。
+   * - 结束后从 done 事件拿完整 title+markdown,写库 + 标记碎片已消费。
+   * 返回 {id,title,markdown,provider,model,elapsed}。
+   */
+  const streamAggregate = async (
+    groupName: string,
+    groupFrags: Fragment[],
+    cfg: LLMConfig,
+    sourceIds: string[],
+    focusEditor: boolean,
+    onDelta?: (text: string) => void
+  ): Promise<{ id: string; title: string; markdown: string; provider: string; model: string; elapsed?: number }> => {
+    const res = await fetch("/api/aggregate?stream=1", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        groupName,
+        fragments: groupFrags.map((f) => ({ content: f.content, tag: groupName })),
+        config: cfg,
+        sourceIds,
+      }),
+    });
+    if (!res.ok || !res.body) {
+      const detail = await res.text().catch(() => "");
+      throw new Error(`[${groupName}] 织造失败 (${res.status}): ${detail.slice(0, 300)}`);
+    }
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    let live = "";
+    let result: { id: string; title: string; markdown: string; provider: string; model: string; elapsed?: number } | null = null;
+    const flushBlock = (block: string) => {
+      for (const line of block.split("\n")) {
+        if (!line.startsWith("data:")) continue;
+        const data = line.slice(5).trim();
+        if (!data || data === "[DONE]") continue;
+        try {
+          const evt = JSON.parse(data);
+          if (evt.type === "delta" && typeof evt.text === "string") {
+            live += evt.text;
+            onDelta?.(evt.text);
+            if (focusEditor) setMarkdown(live);
+          } else if (evt.type === "done") {
+            const now = Date.now();
+            const id = `doc-${now.toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+            saveDoc({ id, title: evt.title, markdown: evt.markdown, sourceFragmentIds: sourceIds, createdAt: now, updatedAt: now, sync: { provider: "none", status: "none" } });
+            markFragmentsConsumed(sourceIds, id);
+            result = { id, title: evt.title, markdown: evt.markdown, provider: evt.provider, model: evt.model, elapsed: evt.elapsed };
+            if (focusEditor) {
+              setDocId(id);
+              setTitle(evt.title);
+              setMarkdown(evt.markdown);
+              setLastMeta({ provider: evt.provider, model: evt.model, elapsed: evt.elapsed });
+            }
+          } else if (evt.type === "error") {
+            throw new Error(`[${groupName}] ${evt.error}`);
+          }
+        } catch (e) {
+          // 单行 JSON 不完整或内部 error:内部 error 需向上抛
+          if (e instanceof Error && e.message.startsWith(`[${groupName}]`)) throw e;
+        }
+      }
+    };
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      let idx: number;
+      while ((idx = buf.indexOf("\n\n")) >= 0) {
+        const block = buf.slice(0, idx);
+        buf = buf.slice(idx + 2);
+        flushBlock(block);
+      }
+    }
+    if (!result) throw new Error(`[${groupName}] 织造未返回结果`);
+    return result;
   };
 
   /** 整批撤回最近一次织造：删本批全部文档 + un-consume 全部碎片。 */
@@ -199,38 +336,31 @@ export default function WeavePage() {
     const cfg = getSettings().llm;
     setLoading(true);
     setError(null);
+    setGroupStates([{ tag: fs[0]?.tag ?? "单篇", status: "weaving" }]);
+    setProgress("正在织造 · 单篇");
+    const segLabel = `织造 · ${fs[0]?.tag ?? "单篇"}`;
+    setStreamSegments([{ label: segLabel, text: "", status: "live" }]);
+    setStreamOpen(true);
     try {
-      const res = await fetch("/api/aggregate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fragments: fs.map((f) => ({ id: f.id, content: f.content, tag: f.tag })),
-          docType,
-          customInstruction: getSettings().customInstruction,
-          config: cfg,
-        }),
+      // 单篇也走流式,让用户实时看 LLM 思考
+      const doc = await streamAggregate(fs[0]?.tag ?? "单篇", fs, cfg, fs.map((f) => f.id), true, (delta) => {
+        setStreamSegments((prev) => prev.map((seg) => seg.label === segLabel && seg.status === "live" ? { ...seg, text: seg.text + delta } : seg));
       });
-      const data = (await res.json()) as AggregateResponse | { error: string };
-      if (!res.ok) throw new Error((data as { error: string }).error || "聚合失败");
-      const d = data as AggregateResponse;
-      const now = Date.now();
-      const id = docId || `doc-${now.toString(36)}`;
-      setDocId(id);
-      setTitle(d.title);
-      setMarkdown(d.markdown);
-      setLastMeta({ provider: d.provider, model: d.model, elapsed: d.elapsed });
+      setStreamSegments((prev) => prev.map((seg) => seg.label === segLabel && seg.status === "live" ? { ...seg, status: "done" } : seg));
       setSourceFragments(fs);
-      saveDoc({ id, title: d.title, markdown: d.markdown, sourceFragmentIds: fs.map((f) => f.id), createdAt: now, updatedAt: now, sync: { provider: "none", status: "none" } });
-      markFragmentsConsumed(fs.map((f) => f.id), id);
-      setLastBatch({ docIds: [id], fragmentIds: fs.map((f) => f.id), createdAt: now });
-      setDoneNotice({ count: 1, docIds: [id] });
+      setLastBatch({ docIds: [doc.id], fragmentIds: fs.map((f) => f.id), createdAt: Date.now() });
+      setDoneNotice({ count: 1, docIds: [doc.id] });
       if (noticeTimer.current) clearTimeout(noticeTimer.current);
       noticeTimer.current = setTimeout(() => setDoneNotice(null), 5000);
       refreshFragments();
+      setProgress(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
+      setStreamSegments((prev) => prev.map((seg) => seg.label === segLabel && seg.status === "live" ? { ...seg, status: "error" } : seg));
     } finally {
       setLoading(false);
+      setGroupStates([]);
+      setProgress(null);
     }
   };
 
@@ -267,10 +397,39 @@ export default function WeavePage() {
           </button>
         )}
         <button onClick={weave} disabled={loading || pending.length === 0} className="ww-btn ww-btn-primary text-13">
-          <IconLoom />
+          {loading ? <Spinner /> : <IconLoom />}
           {loading ? progress || "织造中…" : pending.length === 0 ? "无待织碎片" : "一键自动织造"}
         </button>
       </div>
+
+      {/* 织造进度：逐组状态卡 */}
+      {groupStates.length > 0 && loading && (
+        <div className="mx-6 mt-3 shrink-0">
+          <div className="flex flex-wrap gap-1.5" role="status" aria-live="polite">
+            {groupStates.map((st, i) => (
+              <span
+                key={i}
+                className={`ww-pill ${st.status === "weaving" ? "" : st.status === "done" ? "" : "opacity-60"}`}
+                style={
+                  st.status === "weaving"
+                    ? { background: "var(--c-ochre-tint)", color: "var(--c-ochre-deep)" }
+                    : st.status === "done"
+                    ? { background: "var(--c-ivory-medium)", color: "var(--c-slate-light)" }
+                    : st.status === "error"
+                    ? { background: "var(--c-coral-soft)", color: "var(--c-ochre-deep)" }
+                    : undefined
+                }
+              >
+                {st.status === "weaving" && <Spinner />}
+                {st.status === "done" && <IconCheck />}
+                {st.status === "error" ? "✕" : ""}
+                {st.status === "pending" ? "排队" : ""}
+                <span className="ml-1">{st.tag}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 完成公告（peak-end）：ww-fade 绑 arrival，~5s 自隐 */}
       {doneNotice && !loading && (
@@ -403,6 +562,12 @@ export default function WeavePage() {
         onConfirm={confirmClassify}
         onCancel={() => setClassifyOpen(false)}
       />
+
+      <LLMStreamModal
+        open={streamOpen}
+        segments={streamSegments}
+        onClose={() => setStreamOpen(false)}
+      />
     </div>
   );
 }
@@ -423,3 +588,11 @@ function IconEdit() { return <svg width="14" height="14" viewBox="0 0 24 24" fil
 function IconEye() { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" /></svg>; }
 function IconDoc() { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" /><path d="M14 2v6h6M9 13h6M9 17h6" /></svg>; }
 function IconCheck() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>; }
+function Spinner() {
+  return (
+    <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2.5" opacity="0.25" />
+      <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+    </svg>
+  );
+}
