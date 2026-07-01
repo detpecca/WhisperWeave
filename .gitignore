@@ -13,4 +13,9 @@ dist
 *.tsbuildinfo
 
 # env
-.
+.env
+.env.local
+
+# claude
+.claude/
+CLAUDE.md
